@@ -18,7 +18,7 @@ function MessageBubble({ message }) {
           <p className="m-0 whitespace-pre-wrap">{message.content}</p>
         ) : (
           <div className="space-y-4">
-            {message.thinking ? (
+            {message.showThinking && message.thinking ? (
               <details className="rounded-2xl border border-ember-400/20 bg-ember-400/8 p-4" open>
                 <summary className="cursor-pointer list-none text-xs font-semibold uppercase tracking-[0.16em] text-ember-700">
                   Reasoning Trace
@@ -50,7 +50,7 @@ export default function Chat({
   hasDocuments,
 }) {
   const [draft, setDraft] = useState("");
-  const [useSearch, setUseSearch] = useState(true);
+  const [searchMode, setSearchMode] = useState("auto");
   const [useDocuments, setUseDocuments] = useState(false);
   const [showThinking, setShowThinking] = useState(true);
   const listRef = useRef(null);
@@ -70,9 +70,10 @@ export default function Chat({
 
     onSendMessage({
       content: draft.trim(),
-      useSearch,
+      searchMode,
       useDocuments,
       think: showThinking,
+      showThinking,
     });
     setDraft("");
   }
@@ -148,13 +149,16 @@ export default function Chat({
         <div className="mb-3 flex items-center justify-between">
           <div className="flex flex-wrap gap-4">
             <label className="flex items-center gap-2 text-sm text-sand-700">
-              <input
-                type="checkbox"
-                checked={useSearch}
-                onChange={(event) => setUseSearch(event.target.checked)}
-                className="h-4 w-4 rounded border-sand-300 text-ember-500 focus:ring-ember-400"
-              />
-              Use web search for current information
+              <span>Web search mode</span>
+              <select
+                value={searchMode}
+                onChange={(event) => setSearchMode(event.target.value)}
+                className="rounded-full border border-sand-300 bg-white px-3 py-1 text-sm text-sand-900 outline-none"
+              >
+                <option value="off">Off</option>
+                <option value="auto">Auto</option>
+                <option value="always">Always</option>
+              </select>
             </label>
             <label className="flex items-center gap-2 text-sm text-sand-700">
               <input

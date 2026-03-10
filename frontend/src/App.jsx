@@ -20,6 +20,7 @@ function createMessage(role, content) {
     role,
     content,
     thinking: "",
+    showThinking: true,
   };
 }
 
@@ -143,13 +144,22 @@ export default function App() {
     }
   }
 
-  async function handleSendMessage({ content, useSearch, useDocuments, think }) {
+  async function handleSendMessage({
+    content,
+    searchMode,
+    useDocuments,
+    think,
+    showThinking,
+  }) {
     activeChatAbortRef.current?.abort();
     const abortController = new AbortController();
     activeChatAbortRef.current = abortController;
 
     const userMessage = createMessage("user", content);
-    const assistantMessage = createMessage("assistant", "");
+    const assistantMessage = {
+      ...createMessage("assistant", ""),
+      showThinking,
+    };
     const nextMessages = [...messages, userMessage, assistantMessage];
 
     setMessages(nextMessages);
@@ -176,7 +186,7 @@ export default function App() {
               role: message.role,
               content: message.content,
             })),
-          useSearch,
+          searchMode,
           think,
         },
         {
@@ -193,6 +203,9 @@ export default function App() {
             }));
           },
           onThinking: (token) => {
+            if (!showThinking) {
+              return;
+            }
             setToolState((current) => ({
               ...current,
               isThinking: true,

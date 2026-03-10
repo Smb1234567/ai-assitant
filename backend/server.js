@@ -175,7 +175,7 @@ app.post("/pull-model", async (req, res) => {
 });
 
 app.post("/chat", async (req, res) => {
-  const { model, messages, useSearch, temperature, think } = req.body || {};
+  const { model, messages, searchMode, temperature, think } = req.body || {};
 
   if (!model) {
     return res.status(400).json({ error: "Model is required." });
@@ -194,7 +194,13 @@ app.post("/chat", async (req, res) => {
   let searchUsed = false;
 
   try {
-    if (useSearch && lastUserMessage && requiresWebSearch(lastUserMessage.content)) {
+    const shouldSearch =
+      searchMode === "always" ||
+      (searchMode === "auto" &&
+        lastUserMessage &&
+        requiresWebSearch(lastUserMessage.content));
+
+    if (shouldSearch && lastUserMessage) {
       searchResults = await searchDuckDuckGo(lastUserMessage.content, 5);
       if (searchResults.length > 0) {
         searchUsed = true;
