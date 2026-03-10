@@ -55,6 +55,34 @@ function buildWebSearchInstruction(searchResults) {
   };
 }
 
+function asksForCurrentDate(query) {
+  return /\b(today('|’)s date|today date|current date|what is the date today|find today('|’)s date)\b/i.test(
+    query || ""
+  );
+}
+
+function formatCurrentDateForUser() {
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone,
+  }).format(new Date());
+}
+
+function streamPlainAssistantResponse(res, content, meta = {}) {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders?.();
+
+  writeSseEvent(res, "meta", meta);
+  writeSseEvent(res, "token", { content });
+  writeSseEvent(res, "done", { done: true });
+  res.end();
+}
+
 async function startChatWithThinkFallback({ model, messages, think, options }) {
   try {
     const stream = await chat({
@@ -206,6 +234,22 @@ app.post("/chat", async (req, res) => {
   let searchUsed = false;
 
   try {
+    if (lastUserMessage && asksForCurrentDate(lastUserMessage.content)) {
+      const today = formatCurrentDateForUser();
+      return streamPlainAssistantResponse(
+        res,
+        `Today is ${today}.`,
+        {
+          model,
+          searchUsed: false,
+          searchResults: [],
+          thinkEnabled: false,
+          downgradedFromThink: false,
+          localDateUsed: true,
+        }
+      );
+    }
+
     const shouldSearch =
       searchMode === "always" ||
       (searchMode === "auto" &&
@@ -386,6 +430,24 @@ app.post("/ask-doc", async (req, res) => {
   }
 
   try {
+    if (asksForCurrentDate(lastUserMessage.content)) {
+      const today = formatCurrentDateForUser();
+      return streamPlainAssistantResponse(
+        res,
+        `Today is ${today}.`,
+        {
+          model,
+          searchUsed: false,
+          searchResults: [],
+          retrievalUsed: false,
+          retrievals: [],
+          thinkEnabled: false,
+          downgradedFromThink: false,
+          localDateUsed: true,
+        }
+      );
+    }
+
     let searchResults = [];
     let searchUsed = false;
     const shouldSearch =
