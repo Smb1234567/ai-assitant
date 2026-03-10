@@ -19,6 +19,21 @@ export async function fetchDocuments() {
   return parseJsonResponse(response);
 }
 
+export async function deleteDocument(docId) {
+  const response = await fetch(
+    `${API_BASE_URL}/documents/${encodeURIComponent(docId)}`,
+    { method: "DELETE" }
+  );
+  return parseJsonResponse(response);
+}
+
+export async function clearDocuments() {
+  const response = await fetch(`${API_BASE_URL}/documents`, {
+    method: "DELETE",
+  });
+  return parseJsonResponse(response);
+}
+
 export async function searchWeb(query) {
   const response = await fetch(`${API_BASE_URL}/search`, {
     method: "POST",

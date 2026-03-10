@@ -45,6 +45,7 @@ export default function Chat({
   selectedModel,
   onSendMessage,
   onStopStreaming,
+  onClearChat,
   isStreaming,
   toolState,
   hasDocuments,
@@ -91,8 +92,17 @@ export default function Chat({
               search.
             </p>
           </div>
-          <div className="rounded-full bg-sand-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-sand-700">
-            {selectedModel || "Select a model"}
+          <div className="flex items-center gap-2">
+            <div className="rounded-full bg-sand-100 px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-sand-700">
+              {selectedModel || "Select a model"}
+            </div>
+            <button
+              type="button"
+              onClick={onClearChat}
+              className="rounded-full border border-sand-300 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-sand-700 transition hover:border-ember-500 hover:text-ember-700"
+            >
+              Clear Chat
+            </button>
           </div>
         </div>
 

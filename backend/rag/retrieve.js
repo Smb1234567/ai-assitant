@@ -1,6 +1,13 @@
 const { chat } = require("../ollama");
 const { createSingleEmbedding } = require("./embeddings");
-const { getOrCreateDocumentTable, readDocumentMetadata } = require("./store");
+const {
+  DOCUMENT_TABLE_NAME,
+  clearDocumentMetadata,
+  getConnection,
+  getOrCreateDocumentTable,
+  readDocumentMetadata,
+  removeDocumentMetadata,
+} = require("./store");
 
 const DEFAULT_RETRIEVAL_LIMIT = Number(process.env.RAG_TOP_K || 3);
 
@@ -31,6 +38,24 @@ function buildDocumentContext(chunks) {
     .join("\n\n");
 }
 
+async function deleteDocument(docId) {
+  const { table } = await getOrCreateDocumentTable();
+  const escapedDocId = String(docId).replace(/'/g, "''");
+  await table.delete(`docId = '${escapedDocId}'`);
+  await removeDocumentMetadata(docId);
+}
+
+async function clearAllDocuments() {
+  const db = await getConnection();
+  const tableNames = await db.tableNames();
+
+  if (tableNames.includes(DOCUMENT_TABLE_NAME)) {
+    await db.dropTable(DOCUMENT_TABLE_NAME);
+  }
+
+  await clearDocumentMetadata();
+}
+
 async function streamDocumentAnswer({
   model,
   messages,
@@ -53,15 +78,17 @@ async function streamDocumentAnswer({
     );
   }
 
-  contextBlocks.push(
-    `Context from uploaded documents:\n${buildDocumentContext(retrievals)}`
-  );
+  if (retrievals.length) {
+    contextBlocks.push(
+      `Context from uploaded documents:\n${buildDocumentContext(retrievals)}`
+    );
+  }
 
   enrichedMessages.splice(enrichedMessages.length - 1, 0, {
     role: "system",
     content: `${contextBlocks.join(
       "\n\n"
-    )}\n\nUse the provided context. Prefer web search context for current events and document context for uploaded material. If the answer is not present, say so clearly.`,
+    )}\n\nUse only the provided context. Prefer web search context for current events and document context for uploaded material. If the context is insufficient, say you could not verify it from the available sources.`,
   });
 
   return chat({
@@ -76,6 +103,8 @@ async function streamDocumentAnswer({
 }
 
 module.exports = {
+  clearAllDocuments,
+  deleteDocument,
   getIndexedDocuments,
   retrieveRelevantChunks,
   streamDocumentAnswer,

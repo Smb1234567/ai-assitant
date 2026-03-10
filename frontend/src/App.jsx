@@ -3,6 +3,8 @@ import Chat from "./Chat";
 import ModelSelector from "./ModelSelector";
 import Upload from "./Upload";
 import {
+  clearDocuments,
+  deleteDocument,
   fetchDocuments,
   fetchModels,
   streamAskDoc,
@@ -12,6 +14,8 @@ import {
 } from "./api";
 
 let messageId = 0;
+const CHAT_STORAGE_KEY = "ai-desktop-assistant.chat-history";
+const MODEL_STORAGE_KEY = "ai-desktop-assistant.selected-model";
 
 function createMessage(role, content) {
   messageId += 1;
@@ -24,17 +28,45 @@ function createMessage(role, content) {
   };
 }
 
-export default function App() {
-  const activeChatAbortRef = useRef(null);
-  const [models, setModels] = useState([]);
-  const [selectedModel, setSelectedModel] = useState("");
-  const [documents, setDocuments] = useState([]);
-  const [messages, setMessages] = useState([
+function getDefaultMessages() {
+  return [
     createMessage(
       "assistant",
       "Select an installed Ollama model, or pull a new one, and start chatting."
     ),
-  ]);
+  ];
+}
+
+function loadStoredMessages() {
+  try {
+    const raw = window.localStorage.getItem(CHAT_STORAGE_KEY);
+    if (!raw) {
+      return getDefaultMessages();
+    }
+
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed) || !parsed.length) {
+      return getDefaultMessages();
+    }
+
+    return parsed.map((message) => ({
+      thinking: "",
+      showThinking: true,
+      ...message,
+    }));
+  } catch {
+    return getDefaultMessages();
+  }
+}
+
+export default function App() {
+  const activeChatAbortRef = useRef(null);
+  const [models, setModels] = useState([]);
+  const [selectedModel, setSelectedModel] = useState(
+    () => window.localStorage.getItem(MODEL_STORAGE_KEY) || ""
+  );
+  const [documents, setDocuments] = useState([]);
+  const [messages, setMessages] = useState(() => loadStoredMessages());
   const [isStreaming, setIsStreaming] = useState(false);
   const [pullState, setPullState] = useState({
     isPulling: false,
@@ -66,6 +98,16 @@ export default function App() {
 
     setSelectedModel(targetModel);
   }
+
+  useEffect(() => {
+    window.localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
+  }, [messages]);
+
+  useEffect(() => {
+    if (selectedModel) {
+      window.localStorage.setItem(MODEL_STORAGE_KEY, selectedModel);
+    }
+  }, [selectedModel]);
 
   useEffect(() => {
     loadModels().catch((error) => {
@@ -135,6 +177,38 @@ export default function App() {
       setUploadState({
         isUploading: false,
         status: `${data.document.fileName} indexed with ${data.document.chunkCount} chunks.`,
+      });
+    } catch (error) {
+      setUploadState({
+        isUploading: false,
+        status: error.message,
+      });
+    }
+  }
+
+  async function handleDeleteDocument(docId) {
+    try {
+      await deleteDocument(docId);
+      setDocuments((current) => current.filter((item) => item.docId !== docId));
+      setUploadState({
+        isUploading: false,
+        status: "Document removed.",
+      });
+    } catch (error) {
+      setUploadState({
+        isUploading: false,
+        status: error.message,
+      });
+    }
+  }
+
+  async function handleClearDocuments() {
+    try {
+      await clearDocuments();
+      setDocuments([]);
+      setUploadState({
+        isUploading: false,
+        status: "All indexed documents were removed.",
       });
     } catch (error) {
       setUploadState({
@@ -288,6 +362,15 @@ export default function App() {
     }));
   }
 
+  function handleClearChat() {
+    const defaultMessages = getDefaultMessages();
+    setMessages(defaultMessages);
+    window.localStorage.setItem(
+      CHAT_STORAGE_KEY,
+      JSON.stringify(defaultMessages)
+    );
+  }
+
   useEffect(() => {
     return () => {
       activeChatAbortRef.current?.abort();
@@ -302,6 +385,7 @@ export default function App() {
           selectedModel={selectedModel}
           onSendMessage={handleSendMessage}
           onStopStreaming={handleStopStreaming}
+          onClearChat={handleClearChat}
           isStreaming={isStreaming}
           toolState={toolState}
           hasDocuments={documents.length > 0}
@@ -320,6 +404,8 @@ export default function App() {
             documents={documents}
             uploadState={uploadState}
             onUploadFile={handleUploadFile}
+            onDeleteDocument={handleDeleteDocument}
+            onClearDocuments={handleClearDocuments}
           />
           <section className="rounded-[28px] border border-sand-300/80 bg-white/75 p-5 shadow-panel backdrop-blur">
             <p className="font-display text-lg text-sand-900">Runtime Notes</p>

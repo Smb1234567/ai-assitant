@@ -72,10 +72,27 @@ async function upsertDocumentMetadata(documentRecord) {
   );
 }
 
+async function removeDocumentMetadata(docId) {
+  const documents = await readDocumentMetadata();
+  const filtered = documents.filter((item) => item.docId !== docId);
+  await fs.writeFile(
+    DOCUMENT_METADATA_PATH,
+    JSON.stringify(filtered, null, 2),
+    "utf8"
+  );
+}
+
+async function clearDocumentMetadata() {
+  await fs.writeFile(DOCUMENT_METADATA_PATH, JSON.stringify([], null, 2), "utf8");
+}
+
 module.exports = {
   VECTOR_DB_DIR,
   DOCUMENT_TABLE_NAME,
+  clearDocumentMetadata,
+  getConnection,
   getOrCreateDocumentTable,
   readDocumentMetadata,
+  removeDocumentMetadata,
   upsertDocumentMetadata,
 };

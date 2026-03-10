@@ -9,10 +9,13 @@ const { getInstalledModels, installModel } = require("./models");
 const {
   buildSearchContext,
   requiresWebSearch,
+  referencesUploadedDocuments,
   searchDuckDuckGo,
 } = require("./search");
 const { ingestDocument } = require("./rag/ingest");
 const {
+  clearAllDocuments,
+  deleteDocument,
   getIndexedDocuments,
   retrieveRelevantChunks,
   streamDocumentAnswer,
@@ -41,6 +44,15 @@ function sendError(res, error, fallbackStatus = 500) {
 function writeSseEvent(res, event, payload) {
   res.write(`event: ${event}\n`);
   res.write(`data: ${JSON.stringify(payload)}\n\n`);
+}
+
+function buildWebSearchInstruction(searchResults) {
+  return {
+    role: "system",
+    content: `Verified web context:\n${buildSearchContext(
+      searchResults
+    )}\n\nFor current events, dates, officeholders, or recent facts, answer strictly from this web context. Do not use prior model knowledge. If the answer is missing from this context, say you could not verify it from the search results.`,
+  };
 }
 
 async function startChatWithThinkFallback({ model, messages, think, options }) {
@@ -204,12 +216,11 @@ app.post("/chat", async (req, res) => {
       searchResults = await searchDuckDuckGo(lastUserMessage.content, 5);
       if (searchResults.length > 0) {
         searchUsed = true;
-        normalizedMessages.splice(normalizedMessages.length - 1, 0, {
-          role: "system",
-          content: `Context from web search:\n${buildSearchContext(
-            searchResults
-          )}\n\nAnswer using only the provided context when referencing current information.`,
-        });
+        normalizedMessages.splice(
+          normalizedMessages.length - 1,
+          0,
+          buildWebSearchInstruction(searchResults)
+        );
       }
     }
 
@@ -337,6 +348,24 @@ app.post("/upload", upload.single("file"), async (req, res) => {
   }
 });
 
+app.delete("/documents/:docId", async (req, res) => {
+  try {
+    await deleteDocument(req.params.docId);
+    res.json({ ok: true });
+  } catch (error) {
+    sendError(res, error, 400);
+  }
+});
+
+app.delete("/documents", async (_req, res) => {
+  try {
+    await clearAllDocuments();
+    res.json({ ok: true });
+  } catch (error) {
+    sendError(res, error, 400);
+  }
+});
+
 app.post("/ask-doc", async (req, res) => {
   const { model, messages, think, temperature, searchMode } = req.body || {};
 
@@ -357,23 +386,28 @@ app.post("/ask-doc", async (req, res) => {
   }
 
   try {
-    const retrievals = await retrieveRelevantChunks(lastUserMessage.content, 3);
-    if (!retrievals.length) {
-      return res.status(400).json({
-        error: "No indexed document chunks were available for retrieval.",
-      });
-    }
-
     let searchResults = [];
     let searchUsed = false;
     const shouldSearch =
       searchMode === "always" ||
       (searchMode === "auto" &&
         requiresWebSearch(lastUserMessage.content));
+    const shouldPreferWebOnly =
+      shouldSearch && !referencesUploadedDocuments(lastUserMessage.content);
 
     if (shouldSearch) {
       searchResults = await searchDuckDuckGo(lastUserMessage.content, 5);
       searchUsed = searchResults.length > 0;
+    }
+
+    const retrievals = shouldPreferWebOnly
+      ? []
+      : await retrieveRelevantChunks(lastUserMessage.content, 3);
+
+    if (!searchResults.length && !retrievals.length) {
+      return res.status(400).json({
+        error: "No web results or indexed document chunks were available for this question.",
+      });
     }
 
     const {
@@ -397,7 +431,7 @@ app.post("/ask-doc", async (req, res) => {
     writeSseEvent(res, "meta", {
       searchUsed,
       searchResults,
-      retrievalUsed: true,
+      retrievalUsed: retrievals.length > 0,
       retrievals,
       model,
       thinkEnabled,

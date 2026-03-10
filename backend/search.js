@@ -2,11 +2,17 @@ const axios = require("axios");
 const cheerio = require("cheerio");
 
 const DDG_HTML_SEARCH_URL = "https://html.duckduckgo.com/html/";
+const DOCUMENT_REFERENCE_PATTERN =
+  /\b(document|documents|doc|docs|pdf|file|files|manual|report|uploaded|upload|chunk|chunks|according to|in the document|in the file)\b/i;
 
 function requiresWebSearch(query) {
   const currentInfoPattern =
     /\b(latest|today|current|recent|news|price|weather|score|release|update)\b/i;
   return currentInfoPattern.test(query || "");
+}
+
+function referencesUploadedDocuments(query) {
+  return DOCUMENT_REFERENCE_PATTERN.test(query || "");
 }
 
 async function searchDuckDuckGo(query, limit = 5) {
@@ -54,5 +60,6 @@ function buildSearchContext(results) {
 module.exports = {
   buildSearchContext,
   requiresWebSearch,
+  referencesUploadedDocuments,
   searchDuckDuckGo,
 };

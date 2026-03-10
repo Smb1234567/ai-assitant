@@ -1,4 +1,10 @@
-export default function Upload({ documents, uploadState, onUploadFile }) {
+export default function Upload({
+  documents,
+  uploadState,
+  onUploadFile,
+  onDeleteDocument,
+  onClearDocuments,
+}) {
   function handleFileChange(event) {
     const file = event.target.files?.[0];
     if (file) {
@@ -41,9 +47,20 @@ export default function Upload({ documents, uploadState, onUploadFile }) {
       <div className="mt-4 space-y-2">
         <div className="flex items-center justify-between">
           <p className="text-sm font-medium text-sand-900">Indexed documents</p>
-          <span className="rounded-full bg-sand-100 px-3 py-1 text-xs font-medium text-sand-700">
-            {documents.length}
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="rounded-full bg-sand-100 px-3 py-1 text-xs font-medium text-sand-700">
+              {documents.length}
+            </span>
+            {documents.length ? (
+              <button
+                type="button"
+                onClick={onClearDocuments}
+                className="rounded-full border border-sand-300 px-3 py-1 text-xs font-medium text-sand-700 transition hover:border-ember-500 hover:text-ember-700"
+              >
+                Clear all
+              </button>
+            ) : null}
+          </div>
         </div>
 
         {documents.length ? (
@@ -52,10 +69,21 @@ export default function Upload({ documents, uploadState, onUploadFile }) {
               key={document.docId}
               className="rounded-2xl border border-sand-300 bg-white px-4 py-3 text-sm text-sand-700"
             >
-              <p className="font-medium text-sand-900">{document.fileName}</p>
-              <p className="mt-1 text-xs">
-                {document.chunkCount} chunks • {document.embeddingModel}
-              </p>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium text-sand-900">{document.fileName}</p>
+                  <p className="mt-1 text-xs">
+                    {document.chunkCount} chunks • {document.embeddingModel}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => onDeleteDocument(document.docId)}
+                  className="rounded-full border border-sand-300 px-3 py-1 text-xs font-medium text-sand-700 transition hover:border-ember-500 hover:text-ember-700"
+                >
+                  Remove
+                </button>
+              </div>
             </div>
           ))
         ) : (
