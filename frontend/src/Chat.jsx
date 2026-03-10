@@ -17,9 +17,23 @@ function MessageBubble({ message }) {
         {isUser ? (
           <p className="m-0 whitespace-pre-wrap">{message.content}</p>
         ) : (
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {message.content}
-          </ReactMarkdown>
+          <div className="space-y-4">
+            {message.thinking ? (
+              <details className="rounded-2xl border border-ember-400/20 bg-ember-400/8 p-4" open>
+                <summary className="cursor-pointer list-none text-xs font-semibold uppercase tracking-[0.16em] text-ember-700">
+                  Reasoning Trace
+                </summary>
+                <div className="mt-3 text-sand-700">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {message.thinking}
+                  </ReactMarkdown>
+                </div>
+              </details>
+            ) : null}
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {message.content}
+            </ReactMarkdown>
+          </div>
         )}
       </div>
     </div>
@@ -35,6 +49,7 @@ export default function Chat({
 }) {
   const [draft, setDraft] = useState("");
   const [useSearch, setUseSearch] = useState(true);
+  const [showThinking, setShowThinking] = useState(true);
   const listRef = useRef(null);
 
   useEffect(() => {
@@ -53,6 +68,7 @@ export default function Chat({
     onSendMessage({
       content: draft.trim(),
       useSearch,
+      think: showThinking,
     });
     setDraft("");
   }
@@ -87,7 +103,11 @@ export default function Chat({
             {toolState.searchResults.length} search results attached
           </span>
           <span className="rounded-full bg-sand-100 px-3 py-1">
-            {isStreaming ? "Streaming response" : "Waiting"}
+            {toolState.isThinking
+              ? "Model reasoning"
+              : isStreaming
+                ? "Streaming response"
+                : "Waiting"}
           </span>
         </div>
       </div>
@@ -103,15 +123,26 @@ export default function Chat({
 
       <form onSubmit={handleSubmit} className="border-t border-sand-200 p-5">
         <div className="mb-3 flex items-center justify-between">
-          <label className="flex items-center gap-2 text-sm text-sand-700">
-            <input
-              type="checkbox"
-              checked={useSearch}
-              onChange={(event) => setUseSearch(event.target.checked)}
-              className="h-4 w-4 rounded border-sand-300 text-ember-500 focus:ring-ember-400"
-            />
-            Use web search when the question needs current information
-          </label>
+          <div className="flex flex-wrap gap-4">
+            <label className="flex items-center gap-2 text-sm text-sand-700">
+              <input
+                type="checkbox"
+                checked={useSearch}
+                onChange={(event) => setUseSearch(event.target.checked)}
+                className="h-4 w-4 rounded border-sand-300 text-ember-500 focus:ring-ember-400"
+              />
+              Use web search for current information
+            </label>
+            <label className="flex items-center gap-2 text-sm text-sand-700">
+              <input
+                type="checkbox"
+                checked={showThinking}
+                onChange={(event) => setShowThinking(event.target.checked)}
+                className="h-4 w-4 rounded border-sand-300 text-ember-500 focus:ring-ember-400"
+              />
+              Show reasoning when supported
+            </label>
+          </div>
         </div>
 
         <div className="rounded-[28px] border border-sand-300 bg-sand-100 p-3">

@@ -57,13 +57,14 @@ async function pullModel(name, onProgress) {
   });
 }
 
-async function chat({ model, messages, stream = false, options }) {
+async function chat({ model, messages, stream = false, think, options }) {
   const response = await ollamaClient.post(
     "/chat",
     {
       model,
       messages,
       stream,
+      think,
       options,
     },
     stream

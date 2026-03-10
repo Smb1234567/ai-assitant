@@ -75,7 +75,7 @@ app.post("/pull-model", async (req, res) => {
 });
 
 app.post("/chat", async (req, res) => {
-  const { model, messages, useSearch, temperature } = req.body || {};
+  const { model, messages, useSearch, temperature, think } = req.body || {};
 
   if (!model) {
     return res.status(400).json({ error: "Model is required." });
@@ -111,6 +111,7 @@ app.post("/chat", async (req, res) => {
       model,
       messages: normalizedMessages,
       stream: true,
+      think,
       options: {
         temperature: typeof temperature === "number" ? temperature : 0.7,
       },
@@ -142,6 +143,11 @@ app.post("/chat", async (req, res) => {
         try {
           const payload = JSON.parse(line);
           const content = payload.message?.content || "";
+          const thinking = payload.message?.thinking || "";
+
+          if (thinking) {
+            writeSseEvent(res, "thinking", { content: thinking });
+          }
 
           if (content) {
             writeSseEvent(res, "token", { content });

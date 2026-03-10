@@ -12,6 +12,7 @@ function createMessage(role, content) {
     id: `${role}-${messageId}`,
     role,
     content,
+    thinking: "",
   };
 }
 
@@ -32,6 +33,7 @@ export default function App() {
   const [toolState, setToolState] = useState({
     searchUsed: false,
     searchResults: [],
+    isThinking: false,
   });
 
   async function loadModels(preferredSelection) {
@@ -95,7 +97,7 @@ export default function App() {
     }
   }
 
-  async function handleSendMessage({ content, useSearch }) {
+  async function handleSendMessage({ content, useSearch, think }) {
     const userMessage = createMessage("user", content);
     const assistantMessage = createMessage("assistant", "");
     const nextMessages = [...messages, userMessage, assistantMessage];
@@ -105,6 +107,7 @@ export default function App() {
     setToolState({
       searchUsed: false,
       searchResults: [],
+      isThinking: false,
     });
 
     try {
@@ -118,15 +121,34 @@ export default function App() {
               content: message.content,
             })),
           useSearch,
+          think,
         },
         {
           onMeta: (payload) => {
-            setToolState({
+            setToolState((current) => ({
+              ...current,
               searchUsed: payload.searchUsed,
               searchResults: payload.searchResults || [],
-            });
+            }));
+          },
+          onThinking: (token) => {
+            setToolState((current) => ({
+              ...current,
+              isThinking: true,
+            }));
+            setMessages((current) =>
+              current.map((message) =>
+                message.id === assistantMessage.id
+                  ? { ...message, thinking: `${message.thinking}${token}` }
+                  : message
+              )
+            );
           },
           onToken: (token) => {
+            setToolState((current) => ({
+              ...current,
+              isThinking: false,
+            }));
             setMessages((current) =>
               current.map((message) =>
                 message.id === assistantMessage.id
@@ -137,6 +159,10 @@ export default function App() {
           },
           onDone: () => {
             setIsStreaming(false);
+            setToolState((current) => ({
+              ...current,
+              isThinking: false,
+            }));
           },
         }
       );
@@ -152,6 +178,10 @@ export default function App() {
         )
       );
       setIsStreaming(false);
+      setToolState((current) => ({
+        ...current,
+        isThinking: false,
+      }));
     }
   }
 

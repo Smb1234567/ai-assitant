@@ -136,6 +136,9 @@ export async function streamChat(payload, handlers = {}) {
       if (eventName === "token") {
         handlers.onToken?.(payload.content || "");
       }
+      if (eventName === "thinking") {
+        handlers.onThinking?.(payload.content || "");
+      }
       if (eventName === "done") {
         handlers.onDone?.(payload);
       }
