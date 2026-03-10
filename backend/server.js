@@ -8,9 +8,10 @@ const { chat, OLLAMA_BASE_URL } = require("./ollama");
 const { getInstalledModels, installModel } = require("./models");
 const {
   buildSearchContext,
+  getConfiguredSearchProvider,
   requiresWebSearch,
   referencesUploadedDocuments,
-  searchDuckDuckGo,
+  searchWeb,
 } = require("./search");
 const { ingestDocument } = require("./rag/ingest");
 const {
@@ -163,6 +164,7 @@ app.get("/health", (_req, res) => {
   res.json({
     ok: true,
     ollamaBaseUrl: OLLAMA_BASE_URL,
+    searchProvider: getConfiguredSearchProvider(),
   });
 });
 
@@ -257,7 +259,8 @@ app.post("/chat", async (req, res) => {
         requiresWebSearch(lastUserMessage.content));
 
     if (shouldSearch && lastUserMessage) {
-      searchResults = await searchDuckDuckGo(lastUserMessage.content, 5);
+      const searchResponse = await searchWeb(lastUserMessage.content, 5);
+      searchResults = searchResponse.results;
       if (searchResults.length > 0) {
         searchUsed = true;
         normalizedMessages.splice(
@@ -286,6 +289,7 @@ app.post("/chat", async (req, res) => {
     writeSseEvent(res, "meta", {
       searchUsed,
       searchResults,
+      searchProvider: getConfiguredSearchProvider(),
       model,
       thinkEnabled,
       downgradedFromThink: Boolean(downgradedFromThink),
@@ -367,10 +371,11 @@ app.post("/search", async (req, res) => {
   }
 
   try {
-    const results = await searchDuckDuckGo(query, 5);
+    const searchResponse = await searchWeb(query, 5);
     res.json({
-      results,
-      context: buildSearchContext(results),
+      provider: searchResponse.provider,
+      results: searchResponse.results,
+      context: buildSearchContext(searchResponse.results),
     });
   } catch (error) {
     sendError(res, error, 502);
@@ -458,7 +463,8 @@ app.post("/ask-doc", async (req, res) => {
       shouldSearch && !referencesUploadedDocuments(lastUserMessage.content);
 
     if (shouldSearch) {
-      searchResults = await searchDuckDuckGo(lastUserMessage.content, 5);
+      const searchResponse = await searchWeb(lastUserMessage.content, 5);
+      searchResults = searchResponse.results;
       searchUsed = searchResults.length > 0;
     }
 
@@ -493,6 +499,7 @@ app.post("/ask-doc", async (req, res) => {
     writeSseEvent(res, "meta", {
       searchUsed,
       searchResults,
+      searchProvider: getConfiguredSearchProvider(),
       retrievalUsed: retrievals.length > 0,
       retrievals,
       model,

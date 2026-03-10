@@ -5,7 +5,7 @@ Linux desktop AI assistant built with Electron, React, Express, and Ollama. The 
 - dynamic Ollama model discovery via `/api/tags`
 - model pulling via `/api/pull`
 - streaming chat via `/api/chat`
-- DuckDuckGo-backed web search augmentation
+- provider-backed web search augmentation
 - document upload and local RAG with LanceDB
 - a future runtime switch between Ollama and WebGPU
 
@@ -54,6 +54,24 @@ From the project root:
 cd /home/igris/ai-desktop-assistant
 npm install
 ```
+
+### 2.1 Optional real search provider configuration
+
+The app supports real search-provider APIs when you set one of these environment variables:
+
+- `BRAVE_SEARCH_API_KEY`
+- `TAVILY_API_KEY`
+- `SERPAPI_API_KEY`
+
+If none are set, the app falls back to DuckDuckGo HTML/Lite parsing.
+
+Example:
+
+```bash
+export BRAVE_SEARCH_API_KEY="your_key_here"
+```
+
+Brave is the recommended first option because it provides a direct web search API without requiring browser scraping.
 
 ### 3. Development mode
 

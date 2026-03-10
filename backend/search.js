@@ -3,6 +3,9 @@ const cheerio = require("cheerio");
 
 const DDG_HTML_SEARCH_URL = "https://html.duckduckgo.com/html/";
 const DDG_LITE_SEARCH_URL = "https://lite.duckduckgo.com/lite/";
+const BRAVE_SEARCH_URL = "https://api.search.brave.com/res/v1/web/search";
+const TAVILY_SEARCH_URL = "https://api.tavily.com/search";
+const SERPAPI_SEARCH_URL = "https://serpapi.com/search.json";
 const DOCUMENT_REFERENCE_PATTERN =
   /\b(document|documents|doc|docs|pdf|file|files|manual|report|uploaded|upload|chunk|chunks|according to|in the document|in the file)\b/i;
 
@@ -14,6 +17,87 @@ function requiresWebSearch(query) {
 
 function referencesUploadedDocuments(query) {
   return DOCUMENT_REFERENCE_PATTERN.test(query || "");
+}
+
+function getConfiguredSearchProvider() {
+  if (process.env.BRAVE_SEARCH_API_KEY) {
+    return "brave";
+  }
+  if (process.env.TAVILY_API_KEY) {
+    return "tavily";
+  }
+  if (process.env.SERPAPI_API_KEY) {
+    return "serpapi";
+  }
+  return "duckduckgo";
+}
+
+async function searchBrave(query, limit = 5) {
+  const response = await axios.get(BRAVE_SEARCH_URL, {
+    params: {
+      q: query,
+      count: limit,
+      search_lang: "en",
+      country: "us",
+    },
+    headers: {
+      Accept: "application/json",
+      "X-Subscription-Token": process.env.BRAVE_SEARCH_API_KEY,
+    },
+    timeout: 20000,
+  });
+
+  const items = response.data?.web?.results || [];
+  return items.slice(0, limit).map((item) => ({
+    title: item.title || item.url,
+    snippet: item.description || "",
+    url: item.url,
+  }));
+}
+
+async function searchTavily(query, limit = 5) {
+  const response = await axios.post(
+    TAVILY_SEARCH_URL,
+    {
+      api_key: process.env.TAVILY_API_KEY,
+      query,
+      max_results: limit,
+      search_depth: "advanced",
+      include_answer: false,
+    },
+    {
+      headers: {
+        "Content-Type": "application/json",
+      },
+      timeout: 20000,
+    }
+  );
+
+  const items = response.data?.results || [];
+  return items.slice(0, limit).map((item) => ({
+    title: item.title || item.url,
+    snippet: item.content || "",
+    url: item.url,
+  }));
+}
+
+async function searchSerpApi(query, limit = 5) {
+  const response = await axios.get(SERPAPI_SEARCH_URL, {
+    params: {
+      engine: "google",
+      q: query,
+      num: limit,
+      api_key: process.env.SERPAPI_API_KEY,
+    },
+    timeout: 20000,
+  });
+
+  const items = response.data?.organic_results || [];
+  return items.slice(0, limit).map((item) => ({
+    title: item.title || item.link,
+    snippet: item.snippet || "",
+    url: item.link,
+  }));
 }
 
 async function searchDuckDuckGo(query, limit = 5) {
@@ -56,6 +140,36 @@ async function searchDuckDuckGo(query, limit = 5) {
   });
 
   return parseLiteResults(liteResponse.data, limit);
+}
+
+async function searchWeb(query, limit = 5) {
+  const provider = getConfiguredSearchProvider();
+
+  if (provider === "brave") {
+    return {
+      provider,
+      results: await searchBrave(query, limit),
+    };
+  }
+
+  if (provider === "tavily") {
+    return {
+      provider,
+      results: await searchTavily(query, limit),
+    };
+  }
+
+  if (provider === "serpapi") {
+    return {
+      provider,
+      results: await searchSerpApi(query, limit),
+    };
+  }
+
+  return {
+    provider: "duckduckgo",
+    results: await searchDuckDuckGo(query, limit),
+  };
 }
 
 function normalizeDuckDuckGoUrl(url) {
@@ -158,7 +272,9 @@ function buildSearchContext(results) {
 
 module.exports = {
   buildSearchContext,
+  getConfiguredSearchProvider,
   requiresWebSearch,
   referencesUploadedDocuments,
   searchDuckDuckGo,
+  searchWeb,
 };
