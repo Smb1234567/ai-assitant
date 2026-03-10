@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Chat from "./Chat";
 import ModelSelector from "./ModelSelector";
 import Upload from "./Upload";
@@ -17,6 +17,7 @@ function createMessage(role, content) {
 }
 
 export default function App() {
+  const activeChatAbortRef = useRef(null);
   const [models, setModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState("");
   const [messages, setMessages] = useState([
@@ -100,6 +101,10 @@ export default function App() {
   }
 
   async function handleSendMessage({ content, useSearch, think }) {
+    activeChatAbortRef.current?.abort();
+    const abortController = new AbortController();
+    activeChatAbortRef.current = abortController;
+
     const userMessage = createMessage("user", content);
     const assistantMessage = createMessage("assistant", "");
     const nextMessages = [...messages, userMessage, assistantMessage];
@@ -128,6 +133,7 @@ export default function App() {
           think,
         },
         {
+          signal: abortController.signal,
           onMeta: (payload) => {
             setToolState((current) => ({
               ...current,
@@ -164,6 +170,9 @@ export default function App() {
             );
           },
           onDone: () => {
+            if (activeChatAbortRef.current === abortController) {
+              activeChatAbortRef.current = null;
+            }
             setIsStreaming(false);
             setToolState((current) => ({
               ...current,
@@ -173,16 +182,32 @@ export default function App() {
         }
       );
     } catch (error) {
-      setMessages((current) =>
-        current.map((message) =>
-          message.id === assistantMessage.id
-            ? {
-                ...message,
-                content: `Request failed.\n\n${error.message}`,
-              }
-            : message
-        )
-      );
+      if (error.name === "AbortError") {
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === assistantMessage.id
+              ? {
+                  ...message,
+                  content: message.content || "Generation stopped.",
+                }
+              : message
+          )
+        );
+      } else {
+        setMessages((current) =>
+          current.map((message) =>
+            message.id === assistantMessage.id
+              ? {
+                  ...message,
+                  content: `Request failed.\n\n${error.message}`,
+                }
+              : message
+          )
+        );
+      }
+      if (activeChatAbortRef.current === abortController) {
+        activeChatAbortRef.current = null;
+      }
       setIsStreaming(false);
       setToolState((current) => ({
         ...current,
@@ -191,6 +216,22 @@ export default function App() {
     }
   }
 
+  function handleStopStreaming() {
+    activeChatAbortRef.current?.abort();
+    activeChatAbortRef.current = null;
+    setIsStreaming(false);
+    setToolState((current) => ({
+      ...current,
+      isThinking: false,
+    }));
+  }
+
+  useEffect(() => {
+    return () => {
+      activeChatAbortRef.current?.abort();
+    };
+  }, []);
+
   return (
     <main className="min-h-screen px-5 py-6 text-sand-900 md:px-8 lg:px-10">
       <div className="mx-auto grid max-w-[1480px] gap-6 lg:grid-cols-[1.15fr_380px]">
@@ -198,6 +239,7 @@ export default function App() {
           messages={messages}
           selectedModel={selectedModel}
           onSendMessage={handleSendMessage}
+          onStopStreaming={handleStopStreaming}
           isStreaming={isStreaming}
           toolState={toolState}
         />

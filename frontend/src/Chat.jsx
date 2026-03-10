@@ -44,6 +44,7 @@ export default function Chat({
   messages,
   selectedModel,
   onSendMessage,
+  onStopStreaming,
   isStreaming,
   toolState,
 }) {
@@ -171,13 +172,23 @@ export default function Chat({
             className="w-full resize-none border-0 bg-transparent px-2 py-2 text-sm leading-7 text-sand-900 outline-none placeholder:text-sand-700/70"
           />
           <div className="flex items-center justify-end">
-            <button
-              type="submit"
-              disabled={!selectedModel || isStreaming || !draft.trim()}
-              className="rounded-full bg-ember-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-ember-700 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isStreaming ? "Generating..." : "Send"}
-            </button>
+            {isStreaming ? (
+              <button
+                type="button"
+                onClick={onStopStreaming}
+                className="rounded-full bg-sand-900 px-5 py-2.5 text-sm font-semibold text-sand-100 transition hover:bg-sand-700"
+              >
+                Stop
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!selectedModel || !draft.trim()}
+                className="rounded-full bg-ember-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-ember-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Send
+              </button>
+            )}
           </div>
         </div>
       </form>

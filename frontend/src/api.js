@@ -88,6 +88,7 @@ export async function streamChat(payload, handlers = {}) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+    signal: handlers.signal,
   });
 
   if (!response.ok || !response.body) {

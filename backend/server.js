@@ -144,13 +144,13 @@ app.post("/chat", async (req, res) => {
 
     const { stream: ollamaStream, thinkEnabled, downgradedFromThink } =
       await startChatWithThinkFallback({
-      model,
-      messages: normalizedMessages,
-      think,
-      options: {
-        temperature: typeof temperature === "number" ? temperature : 0.7,
-      },
-    });
+        model,
+        messages: normalizedMessages,
+        think,
+        options: {
+          temperature: typeof temperature === "number" ? temperature : 0.7,
+        },
+      });
 
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
@@ -163,6 +163,12 @@ app.post("/chat", async (req, res) => {
       model,
       thinkEnabled,
       downgradedFromThink: Boolean(downgradedFromThink),
+    });
+
+    req.on("close", () => {
+      if (!res.writableEnded) {
+        ollamaStream.destroy();
+      }
     });
 
     let buffer = "";
