@@ -1,0 +1,32 @@
+@import url("https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color: #241c13;
+  background:
+    radial-gradient(circle at top left, rgba(212, 172, 121, 0.28), transparent 34%),
+    radial-gradient(circle at top right, rgba(122, 143, 82, 0.16), transparent 28%),
+    linear-gradient(180deg, #f8f3ea 0%, #efe4d2 100%);
+  font-family: "Instrument Sans", sans-serif;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.scrollbar-soft::-webkit-scrollbar {
+  width: 10px;
+}
+
+.scrollbar-soft::-webkit-scrollbar-thumb {
+  background: rgba(77, 63, 45, 0.18);
+  border-radius: 999px;
+}
