@@ -1,0 +1,44 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+build/
+out/
+
+# Electron
+*.log
+*.log.*
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Uploads and temporary files
+uploads/
+tmp/
+temp/
+
+# Vector database
+vector_db/
+
+# Test coverage
+coverage/
+
+# npm debug logs
+npm-debug.log*
+
+# Vite
+*.local
