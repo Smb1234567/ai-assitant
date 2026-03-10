@@ -28,6 +28,41 @@ function writeSseEvent(res, event, payload) {
   res.write(`data: ${JSON.stringify(payload)}\n\n`);
 }
 
+async function startChatWithThinkFallback({ model, messages, think, options }) {
+  try {
+    const stream = await chat({
+      model,
+      messages,
+      stream: true,
+      think,
+      options,
+    });
+
+    return {
+      stream,
+      thinkEnabled: Boolean(think),
+    };
+  } catch (error) {
+    const status = error.response?.status;
+    if (!think || status !== 400) {
+      throw error;
+    }
+
+    const stream = await chat({
+      model,
+      messages,
+      stream: true,
+      options,
+    });
+
+    return {
+      stream,
+      thinkEnabled: false,
+      downgradedFromThink: true,
+    };
+  }
+}
+
 app.get("/health", (_req, res) => {
   res.json({
     ok: true,
@@ -107,10 +142,10 @@ app.post("/chat", async (req, res) => {
       }
     }
 
-    const ollamaStream = await chat({
+    const { stream: ollamaStream, thinkEnabled, downgradedFromThink } =
+      await startChatWithThinkFallback({
       model,
       messages: normalizedMessages,
-      stream: true,
       think,
       options: {
         temperature: typeof temperature === "number" ? temperature : 0.7,
@@ -126,6 +161,8 @@ app.post("/chat", async (req, res) => {
       searchUsed,
       searchResults,
       model,
+      thinkEnabled,
+      downgradedFromThink: Boolean(downgradedFromThink),
     });
 
     let buffer = "";

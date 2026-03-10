@@ -34,6 +34,8 @@ export default function App() {
     searchUsed: false,
     searchResults: [],
     isThinking: false,
+    thinkEnabled: false,
+    downgradedFromThink: false,
   });
 
   async function loadModels(preferredSelection) {
@@ -108,6 +110,8 @@ export default function App() {
       searchUsed: false,
       searchResults: [],
       isThinking: false,
+      thinkEnabled: false,
+      downgradedFromThink: false,
     });
 
     try {
@@ -129,6 +133,8 @@ export default function App() {
               ...current,
               searchUsed: payload.searchUsed,
               searchResults: payload.searchResults || [],
+              thinkEnabled: Boolean(payload.thinkEnabled),
+              downgradedFromThink: Boolean(payload.downgradedFromThink),
             }));
           },
           onThinking: (token) => {

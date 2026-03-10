@@ -102,6 +102,13 @@ export default function Chat({
           <span className="rounded-full bg-sand-100 px-3 py-1">
             {toolState.searchResults.length} search results attached
           </span>
+          <span
+            className={`rounded-full px-3 py-1 ${
+              toolState.thinkEnabled ? "bg-ember-400/15 text-ember-700" : "bg-sand-100"
+            }`}
+          >
+            {toolState.thinkEnabled ? "Reasoning enabled" : "Reasoning unavailable"}
+          </span>
           <span className="rounded-full bg-sand-100 px-3 py-1">
             {toolState.isThinking
               ? "Model reasoning"
@@ -110,6 +117,11 @@ export default function Chat({
                 : "Waiting"}
           </span>
         </div>
+        {toolState.downgradedFromThink ? (
+          <p className="mt-3 text-xs font-medium text-sand-700">
+            This model rejected reasoning mode, so the request was retried without it.
+          </p>
+        ) : null}
       </div>
 
       <div
