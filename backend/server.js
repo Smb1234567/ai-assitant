@@ -338,7 +338,7 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 });
 
 app.post("/ask-doc", async (req, res) => {
-  const { model, messages, think, temperature } = req.body || {};
+  const { model, messages, think, temperature, searchMode } = req.body || {};
 
   if (!model) {
     return res.status(400).json({ error: "Model is required." });
@@ -364,6 +364,18 @@ app.post("/ask-doc", async (req, res) => {
       });
     }
 
+    let searchResults = [];
+    let searchUsed = false;
+    const shouldSearch =
+      searchMode === "always" ||
+      (searchMode === "auto" &&
+        requiresWebSearch(lastUserMessage.content));
+
+    if (shouldSearch) {
+      searchResults = await searchDuckDuckGo(lastUserMessage.content, 5);
+      searchUsed = searchResults.length > 0;
+    }
+
     const {
       stream: ollamaStream,
       thinkEnabled,
@@ -372,6 +384,7 @@ app.post("/ask-doc", async (req, res) => {
       model,
       messages,
       retrievals,
+      searchResults,
       think,
       temperature,
     });
@@ -382,6 +395,8 @@ app.post("/ask-doc", async (req, res) => {
     res.flushHeaders?.();
 
     writeSseEvent(res, "meta", {
+      searchUsed,
+      searchResults,
       retrievalUsed: true,
       retrievals,
       model,

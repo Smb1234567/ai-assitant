@@ -35,15 +35,33 @@ async function streamDocumentAnswer({
   model,
   messages,
   retrievals,
+  searchResults = [],
   think,
   temperature,
 }) {
   const enrichedMessages = [...messages];
+  const contextBlocks = [];
+
+  if (searchResults.length) {
+    contextBlocks.push(
+      `Context from web search:\n${searchResults
+        .map(
+          (result, index) =>
+            `${index + 1}. ${result.title}\nURL: ${result.url}\nSnippet: ${result.snippet}`
+        )
+        .join("\n\n")}`
+    );
+  }
+
+  contextBlocks.push(
+    `Context from uploaded documents:\n${buildDocumentContext(retrievals)}`
+  );
+
   enrichedMessages.splice(enrichedMessages.length - 1, 0, {
     role: "system",
-    content: `Context from uploaded documents:\n${buildDocumentContext(
-      retrievals
-    )}\n\nAnswer using the provided document context. If the answer is not present, say so clearly.`,
+    content: `${contextBlocks.join(
+      "\n\n"
+    )}\n\nUse the provided context. Prefer web search context for current events and document context for uploaded material. If the answer is not present, say so clearly.`,
   });
 
   return chat({
