@@ -2,7 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import Chat from "./Chat";
 import ModelSelector from "./ModelSelector";
 import Upload from "./Upload";
-import { fetchModels, streamChat, streamPullModel } from "./api";
+import {
+  fetchDocuments,
+  fetchModels,
+  streamAskDoc,
+  streamChat,
+  streamPullModel,
+  uploadDocument,
+} from "./api";
 
 let messageId = 0;
 
@@ -20,6 +27,7 @@ export default function App() {
   const activeChatAbortRef = useRef(null);
   const [models, setModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState("");
+  const [documents, setDocuments] = useState([]);
   const [messages, setMessages] = useState([
     createMessage(
       "assistant",
@@ -31,9 +39,15 @@ export default function App() {
     isPulling: false,
     status: "",
   });
+  const [uploadState, setUploadState] = useState({
+    isUploading: false,
+    status: "",
+  });
   const [toolState, setToolState] = useState({
     searchUsed: false,
     searchResults: [],
+    retrievalUsed: false,
+    retrievals: [],
     isThinking: false,
     thinkEnabled: false,
     downgradedFromThink: false,
@@ -62,6 +76,14 @@ export default function App() {
         ),
       ]);
     });
+  }, []);
+
+  useEffect(() => {
+    fetchDocuments()
+      .then((data) => setDocuments(data.documents || []))
+      .catch(() => {
+        setDocuments([]);
+      });
   }, []);
 
   async function handlePullModel(name) {
@@ -100,7 +122,28 @@ export default function App() {
     }
   }
 
-  async function handleSendMessage({ content, useSearch, think }) {
+  async function handleUploadFile(file) {
+    setUploadState({
+      isUploading: true,
+      status: `Indexing ${file.name}...`,
+    });
+
+    try {
+      const data = await uploadDocument(file);
+      setDocuments((current) => [data.document, ...current]);
+      setUploadState({
+        isUploading: false,
+        status: `${data.document.fileName} indexed with ${data.document.chunkCount} chunks.`,
+      });
+    } catch (error) {
+      setUploadState({
+        isUploading: false,
+        status: error.message,
+      });
+    }
+  }
+
+  async function handleSendMessage({ content, useSearch, useDocuments, think }) {
     activeChatAbortRef.current?.abort();
     const abortController = new AbortController();
     activeChatAbortRef.current = abortController;
@@ -114,13 +157,17 @@ export default function App() {
     setToolState({
       searchUsed: false,
       searchResults: [],
+      retrievalUsed: false,
+      retrievals: [],
       isThinking: false,
       thinkEnabled: false,
       downgradedFromThink: false,
     });
 
     try {
-      await streamChat(
+      const streamRequest = useDocuments ? streamAskDoc : streamChat;
+
+      await streamRequest(
         {
           model: selectedModel,
           messages: nextMessages
@@ -139,6 +186,8 @@ export default function App() {
               ...current,
               searchUsed: payload.searchUsed,
               searchResults: payload.searchResults || [],
+              retrievalUsed: Boolean(payload.retrievalUsed),
+              retrievals: payload.retrievals || [],
               thinkEnabled: Boolean(payload.thinkEnabled),
               downgradedFromThink: Boolean(payload.downgradedFromThink),
             }));
@@ -242,6 +291,7 @@ export default function App() {
           onStopStreaming={handleStopStreaming}
           isStreaming={isStreaming}
           toolState={toolState}
+          hasDocuments={documents.length > 0}
         />
 
         <div className="space-y-6">
@@ -253,13 +303,18 @@ export default function App() {
             pullState={pullState}
             refreshModels={() => loadModels()}
           />
-          <Upload />
+          <Upload
+            documents={documents}
+            uploadState={uploadState}
+            onUploadFile={handleUploadFile}
+          />
           <section className="rounded-[28px] border border-sand-300/80 bg-white/75 p-5 shadow-panel backdrop-blur">
             <p className="font-display text-lg text-sand-900">Runtime Notes</p>
             <p className="mt-2 text-sm leading-7 text-sand-700">
               Ollama model selection is dynamic. Every chat request sends the full
               message history to the currently selected model through the backend.
-              Web search context is inserted only when the query looks time-sensitive.
+              Web search and document retrieval can both be injected as prompt
+              context without leaving the chat screen.
             </p>
           </section>
         </div>

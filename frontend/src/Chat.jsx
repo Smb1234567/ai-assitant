@@ -47,9 +47,11 @@ export default function Chat({
   onStopStreaming,
   isStreaming,
   toolState,
+  hasDocuments,
 }) {
   const [draft, setDraft] = useState("");
   const [useSearch, setUseSearch] = useState(true);
+  const [useDocuments, setUseDocuments] = useState(false);
   const [showThinking, setShowThinking] = useState(true);
   const listRef = useRef(null);
 
@@ -69,6 +71,7 @@ export default function Chat({
     onSendMessage({
       content: draft.trim(),
       useSearch,
+      useDocuments,
       think: showThinking,
     });
     setDraft("");
@@ -102,6 +105,13 @@ export default function Chat({
           </span>
           <span className="rounded-full bg-sand-100 px-3 py-1">
             {toolState.searchResults.length} search results attached
+          </span>
+          <span
+            className={`rounded-full px-3 py-1 ${
+              toolState.retrievalUsed ? "bg-moss-400/15 text-moss-600" : "bg-sand-100"
+            }`}
+          >
+            {toolState.retrievalUsed ? "Document retrieval used" : "Document retrieval idle"}
           </span>
           <span
             className={`rounded-full px-3 py-1 ${
@@ -149,6 +159,16 @@ export default function Chat({
             <label className="flex items-center gap-2 text-sm text-sand-700">
               <input
                 type="checkbox"
+                checked={useDocuments}
+                disabled={!hasDocuments}
+                onChange={(event) => setUseDocuments(event.target.checked)}
+                className="h-4 w-4 rounded border-sand-300 text-ember-500 focus:ring-ember-400 disabled:opacity-50"
+              />
+              Ask uploaded documents
+            </label>
+            <label className="flex items-center gap-2 text-sm text-sand-700">
+              <input
+                type="checkbox"
                 checked={showThinking}
                 onChange={(event) => setShowThinking(event.target.checked)}
                 className="h-4 w-4 rounded border-sand-300 text-ember-500 focus:ring-ember-400"
@@ -164,7 +184,7 @@ export default function Chat({
             onChange={(event) => setDraft(event.target.value)}
             placeholder={
               selectedModel
-                ? "Ask something about the current world, your local files, or a pulled model."
+                ? "Ask about the web, uploaded documents, or a pulled model."
                 : "Select an Ollama model first."
             }
             rows={4}

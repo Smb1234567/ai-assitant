@@ -14,6 +14,11 @@ export async function fetchModels() {
   return parseJsonResponse(response);
 }
 
+export async function fetchDocuments() {
+  const response = await fetch(`${API_BASE_URL}/documents`);
+  return parseJsonResponse(response);
+}
+
 export async function searchWeb(query) {
   const response = await fetch(`${API_BASE_URL}/search`, {
     method: "POST",
@@ -84,7 +89,27 @@ export async function streamPullModel(name, handlers = {}) {
 }
 
 export async function streamChat(payload, handlers = {}) {
-  const response = await fetch(`${API_BASE_URL}/chat`, {
+  return streamSseRequest("/chat", payload, handlers);
+}
+
+export async function uploadDocument(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  const response = await fetch(`${API_BASE_URL}/upload`, {
+    method: "POST",
+    body: formData,
+  });
+
+  return parseJsonResponse(response);
+}
+
+export async function streamAskDoc(payload, handlers = {}) {
+  return streamSseRequest("/ask-doc", payload, handlers);
+}
+
+async function streamSseRequest(path, payload, handlers = {}) {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -93,7 +118,7 @@ export async function streamChat(payload, handlers = {}) {
 
   if (!response.ok || !response.body) {
     const data = await response.json().catch(() => ({}));
-    throw new Error(data.error || "Failed to start chat stream.");
+    throw new Error(data.error || "Failed to start stream.");
   }
 
   const reader = response.body.getReader();
@@ -119,7 +144,6 @@ export async function streamChat(payload, handlers = {}) {
         if (line.startsWith("event:")) {
           eventName = line.slice(6).trim();
         }
-
         if (line.startsWith("data:")) {
           dataLine += line.slice(5).trim();
         }
@@ -129,22 +153,21 @@ export async function streamChat(payload, handlers = {}) {
         continue;
       }
 
-      const payload = JSON.parse(dataLine);
-
+      const streamPayload = JSON.parse(dataLine);
       if (eventName === "meta") {
-        handlers.onMeta?.(payload);
+        handlers.onMeta?.(streamPayload);
       }
       if (eventName === "token") {
-        handlers.onToken?.(payload.content || "");
+        handlers.onToken?.(streamPayload.content || "");
       }
       if (eventName === "thinking") {
-        handlers.onThinking?.(payload.content || "");
+        handlers.onThinking?.(streamPayload.content || "");
       }
       if (eventName === "done") {
-        handlers.onDone?.(payload);
+        handlers.onDone?.(streamPayload);
       }
       if (eventName === "error") {
-        throw new Error(payload.error || "Chat stream failed.");
+        throw new Error(streamPayload.error || "Stream failed.");
       }
     }
   }
