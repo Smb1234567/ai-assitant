@@ -206,11 +206,13 @@ app.post("/pull-model", async (req, res) => {
     writeSseEvent(res, "done", {
       name,
       status: finalEvent?.status || "success",
+      completed: true,
     });
     res.end();
   } catch (error) {
     writeSseEvent(res, "error", {
       error: error.message || "Failed to pull model.",
+      completed: false,
     });
     res.end();
   }

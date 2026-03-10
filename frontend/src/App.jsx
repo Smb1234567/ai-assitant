@@ -138,18 +138,27 @@ export default function App() {
     try {
       await streamPullModel(name, {
         onProgress: (payload) => {
-          const detail = payload.completed && payload.total
+          const hasBytes =
+            typeof payload.completed === "number" &&
+            typeof payload.total === "number" &&
+            payload.total > 0;
+          const detail = hasBytes
             ? `${payload.status} (${Math.round(
                 (payload.completed / payload.total) * 100
               )}%)`
-            : payload.status;
+            : payload.digest
+              ? `${payload.status} (${payload.digest.slice(0, 12)})`
+              : payload.status;
 
           setPullState({
             isPulling: true,
             status: detail || `Pulling ${name}...`,
           });
         },
-        onDone: async () => {
+        onDone: async (payload) => {
+          if (!payload?.completed) {
+            throw new Error("Ollama did not confirm model download completion.");
+          }
           await loadModels(name);
           setPullState({
             isPulling: false,

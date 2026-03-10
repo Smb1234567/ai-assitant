@@ -27,6 +27,7 @@ async function pullModel(name, onProgress) {
   return new Promise((resolve, reject) => {
     let buffer = "";
     let lastEvent = null;
+    let settled = false;
 
     response.data.on("data", (chunk) => {
       buffer += chunk.toString("utf8");
@@ -44,16 +45,59 @@ async function pullModel(name, onProgress) {
           if (onProgress) {
             onProgress(event);
           }
+
+          if (event.error && !settled) {
+            settled = true;
+            reject(new Error(event.error));
+            response.data.destroy();
+            return;
+          }
+
+          if (event.status === "success" && !settled) {
+            settled = true;
+            resolve(event);
+            response.data.destroy();
+            return;
+          }
         } catch (error) {
-          reject(
-            new Error(`Failed to parse Ollama pull progress payload: ${error.message}`)
-          );
+          if (!settled) {
+            settled = true;
+            reject(
+              new Error(
+                `Failed to parse Ollama pull progress payload: ${error.message}`
+              )
+            );
+          }
         }
       }
     });
 
-    response.data.on("end", () => resolve(lastEvent));
-    response.data.on("error", reject);
+    response.data.on("end", () => {
+      if (settled) {
+        return;
+      }
+
+      if (lastEvent?.status === "success") {
+        settled = true;
+        resolve(lastEvent);
+        return;
+      }
+
+      settled = true;
+      reject(
+        new Error(
+          lastEvent?.error ||
+            `Model pull for ${name} ended before Ollama reported success.`
+        )
+      );
+    });
+
+    response.data.on("error", (error) => {
+      if (!settled) {
+        settled = true;
+        reject(error);
+      }
+    });
   });
 }
 
